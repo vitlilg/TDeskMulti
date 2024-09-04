@@ -1,16 +1,3 @@
-#   Copyright 2019-2020 peppelg
-#
-#   Licensed under the Apache License, Version 2.0 (the "License");
-#   you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-#   Unless required by applicable law or agreed to in writing, software
-#   distributed under the License is distributed on an "AS IS" BASIS,
-#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#   See the License for the specific language governing permissions and
-#   limitations under the License.
 import os
 import sys
 import subprocess
@@ -50,8 +37,19 @@ strings = {'new_account': 'Nuovo account', 'update_tdesk': 'Aggiorna TDesktop', 
            'e_not_selected_account': 'Seleziona un account dal menu', 'e_account_exists': 'Esiste già un account con questo nome.', 'error': 'Errore', 'sure': 'Sei sicuro?'}
 strings_en = {'new_account': 'Add Account', 'update_tdesk': 'Update Telegram Desktop', 'start': 'Start', 'edit_name': 'Edit name', 'delete_account': 'Delete account',
               'enter_acc_name': 'Enter the account name', 'e_not_selected_account': 'Pls select an account', 'e_account_exists': 'An account with this name already exists.', 'error': 'Error', 'sure': 'Are you sure?'}
-if not locale.getdefaultlocale()[0] == 'it_IT':
+strings_uk = {'new_account': 'Додати акаунт', 'update_tdesk': 'Оновити Telegram Desktop', 'start': 'Запустити', 'edit_name': 'Змінити імʼя', 'delete_account': 'Видалити акаунт',
+              'enter_acc_name': 'Введіть імʼя акаунту', 'e_not_selected_account': 'Будь ласка, виберіть акаунт', 'e_account_exists': 'Акаунт з цим імʼям вже існує', 'error': 'Помилка', 'sure': 'Ви впевнені?'}
+strings_ru = {'new_account': 'Добавить аккаунт', 'update_tdesk': 'Обновить Telegram Desktop', 'start': 'Запустить', 'edit_name': 'Изменить имя', 'delete_account': 'Удалить аккаунт',
+              'enter_acc_name': 'Ввведите имя аккаунта', 'e_not_selected_account': 'Пожалуйста, выберите аккаунт', 'e_account_exists': 'Аккаунт с этим именем уже существует', 'error': 'Ошибка', 'sure': 'Вы уверены?'}
+if locale.getdefaultlocale()[0] == 'it_IT':
+    strings = strings
+elif locale.getdefaultlocale()[0] == 'uk_UA':
+    strings = strings_uk
+elif locale.getdefaultlocale()[0] == 'ru_RU':
+    strings = strings_ru
+else:
     strings = strings_en
+
 
 sg.theme('SystemDefault')
 # sg.theme('SystemDefaultForReal')
