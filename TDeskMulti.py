@@ -181,7 +181,7 @@ def start_session(account):
         account_file_path = os.path.join(account_dir, f'{account}.xyz')
         with open(account_file_path, 'w') as account_file:
             account_file.write('')
-        # subprocess.Popen([telegram, '-workdir', account_dir])
+        subprocess.Popen([telegram, '-workdir', account_dir])
     else:
         sg.Popup(strings['error'],
                  strings['session_file_download_error'], icon=icon)
@@ -196,9 +196,9 @@ def disconnect_session(account=None):
                 account = file.split('.')[0]
                 break
 
-    # stop_process_result = kill_process_by_name(process_name)
-    # if not stop_process_result:
-    #     sg.Popup(strings['error'])
+    stop_process_result = kill_process_by_name(process_name)
+    if not stop_process_result:
+        sg.Popup(strings['error'])
 
     if os.path.exists(account_dir):
         # Проходимо по всім елементам в папці
