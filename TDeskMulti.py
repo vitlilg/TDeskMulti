@@ -1,10 +1,15 @@
+import psutil
 import os
+import shutil
 import sys
 import subprocess
 import json
 import uuid
 import locale
 import base64
+import zipfile
+
+import httpx
 import requests
 import PySimpleGUI as sg
 # import PySimpleGUIQt as sg
@@ -12,11 +17,15 @@ from archive import extract
 from shutil import rmtree
 import argparse
 
+
+# Обработка аргументов командной строки
 parser = argparse.ArgumentParser(description='Telegram Desktop multi-account.')
 parser.add_argument('--dir', dest='directory',
                     help='Directory where TDeskmulti will store your Telegram accounts')
 args = parser.parse_args()
 
+# Определения директории, где будут храниться данные для
+# мультииспользования аккаунтов в Telegram Desktop
 if args.directory and os.path.isdir(args.directory):
     dir = os.path.realpath(args.directory) + '/.TDeskMulti/'
 else:
@@ -25,7 +34,7 @@ else:
     else:
         dir = os.path.dirname(os.path.realpath(__file__)) + '/.TDeskMulti/'
 
-
+# Определение пути где будут храниться файлы портативной Telegram Desktop
 if os.name == 'nt':
     telegram = dir+'bin/Telegram/Telegram.exe'
 elif os.name == 'mac':
@@ -33,35 +42,214 @@ elif os.name == 'mac':
     quit()
 else:
     telegram = dir+'bin/Telegram/Telegram'
-strings = {'new_account': 'Nuovo account', 'update_tdesk': 'Aggiorna TDesktop', 'start': 'Avvia', 'edit_name': 'Cambia nome', 'delete_account': 'Elimina account', 'enter_acc_name': 'Inserisci il nome dell\'account',
-           'e_not_selected_account': 'Seleziona un account dal menu', 'e_account_exists': 'Esiste già un account con questo nome.', 'error': 'Errore', 'sure': 'Sei sicuro?'}
-strings_en = {'new_account': 'Add Account', 'update_tdesk': 'Update Telegram Desktop', 'start': 'Start', 'edit_name': 'Edit name', 'delete_account': 'Delete account',
-              'enter_acc_name': 'Enter the account name', 'e_not_selected_account': 'Pls select an account', 'e_account_exists': 'An account with this name already exists.', 'error': 'Error', 'sure': 'Are you sure?'}
-strings_uk = {'new_account': 'Додати акаунт', 'update_tdesk': 'Оновити Telegram Desktop', 'start': 'Запустити', 'edit_name': 'Змінити імʼя', 'delete_account': 'Видалити акаунт',
-              'enter_acc_name': 'Введіть імʼя акаунту', 'e_not_selected_account': 'Будь ласка, виберіть акаунт', 'e_account_exists': 'Акаунт з цим імʼям вже існує', 'error': 'Помилка', 'sure': 'Ви впевнені?'}
-strings_ru = {'new_account': 'Добавить аккаунт', 'update_tdesk': 'Обновить Telegram Desktop', 'start': 'Запустить', 'edit_name': 'Изменить имя', 'delete_account': 'Удалить аккаунт',
-              'enter_acc_name': 'Ввведите имя аккаунта', 'e_not_selected_account': 'Пожалуйста, выберите аккаунт', 'e_account_exists': 'Аккаунт с этим именем уже существует', 'error': 'Ошибка', 'sure': 'Вы уверены?'}
-if locale.getdefaultlocale()[0] == 'it_IT':
-    strings = strings
-elif locale.getdefaultlocale()[0] == 'uk_UA':
+
+process_name = telegram.split('/')[-1]
+
+# Определение словаря для мультиязычности интерфейса
+strings_en = {
+    'update_accounts_list': 'Update Accounts List', 'update_tdesk': 'Update Telegram Desktop',
+    'start_session': 'Start session', 'disconnect_session': 'Disconnect session',
+    'enter_access_key': 'Enter access key', 'e_not_selected_account': 'Pls select an account',
+    'e_account_exists': 'An account with this name already exists.',
+    'error': 'Error', 'sure': 'Are you sure?', 'key_not_entered': 'Access key is not entered',
+    'access_granted': 'Access granted', 'access_granted_message': 'Access granted for you',
+    'access_denied': 'Access denied', 'try_again_message': 'Try again',
+    'session_file_download_error': 'Session file download is failed', 'success_message': 'Success',
+    'session_disconnected_successfully': 'Session disconnected successfully',
+    'session_disconnection_is_failed': 'Session disconnection is failed',
+    'session_still_running': 'Session is still running',
+}
+strings_uk = {
+    'update_accounts_list': 'Оновити список акаунтів', 'update_tdesk': 'Оновити Telegram Desktop',
+    'start_session': 'Запустити сесію', 'disconnect_session': 'Відключити сесію',
+    'enter_access_key': 'Введіть код доступу', 'e_not_selected_account': 'Будь ласка, виберіть акаунт',
+    'e_account_exists': 'Акаунт з цим імʼям вже існує', 'error': 'Помилка', 'sure': 'Ви впевнені?',
+    'key_not_entered': 'Код доступу не введено', 'access_granted': 'Доступ надано',
+    'access_granted_message': 'Доступ надано для вас', 'access_denied': 'Доступ не надано',
+    'try_again_message': 'Доступ не надано для вас', 'session_file_download_error': 'Помилка завантаження файлу сесії',
+    'session_disconnected_successfully': 'Сесія відключена успішно', 'success_message': 'Успіх',
+    'session_disconnection_is_failed': 'Сесія не відключена',
+    'session_still_running': 'Сесія ще активна',
+}
+strings_ru = {
+    'update_accounts_list': 'Обновить список аккаунтов', 'update_tdesk': 'Обновить Telegram Desktop',
+    'start_session': 'Запустить сессию', 'disconnect_session': 'Выключить сессию',
+    'enter_access_key': 'Введите код доступа', 'e_not_selected_account': 'Пожалуйста, выберите аккаунт',
+    'e_account_exists': 'Аккаунт с этим именем уже существует', 'error': 'Ошибка', 'sure': 'Вы уверены?',
+    'key_not_entered': 'Код доступа не введен', 'access_granted': 'Доступ предоставлен',
+    'access_granted_message': 'Доступ для вас предоставлен', 'access_denied': 'Доступ не предоставлен',
+    'try_again_message': 'Доступ не предоставлен для вас',
+    'session_file_download_error': 'Ошибка загружка файла сессии', 'success_message': 'Успех',
+    'session_disconnected_successfully': 'Сессия успешно отключена',
+    'session_disconnection_is_failed': 'Сессия не отключена', 'session_still_running': 'Сессия еще активна',
+}
+if locale.getdefaultlocale()[0] == 'uk_UA':
     strings = strings_uk
 elif locale.getdefaultlocale()[0] == 'ru_RU':
     strings = strings_ru
 else:
     strings = strings_en
 
-
+# Выбор темы для приложения
 sg.theme('SystemDefault')
-# sg.theme('SystemDefaultForReal')
+
+import sys
+import PySimpleGUI as sg
+import httpx
+
+# Створюємо вікно з полем вводу та двома кнопками
+layout = [
+    [sg.Text(strings['enter_access_key'])],
+    [sg.Input(key='access_key')],
+    [sg.Button('Enter', bind_return_key=True), sg.Button('Cancel')]
+]
+
+window = sg.Window(strings['enter_access_key'], layout)
+
+while True:
+    event, values = window.read()
+
+    # Якщо користувач натискає 'Cancel' або закриває вікно
+    if event == sg.WINDOW_CLOSED or event == 'Cancel':
+        sg.Popup(strings['error'], strings['key_not_entered'])
+        sys.exit(0)  # Завершити програму
+
+    # Якщо натиснуто кнопку 'Enter' або клавішу Enter
+    if event == 'Enter':
+        access_key = values['access_key']
+
+        if access_key:
+            with httpx.Client() as client:
+                access_response = client.post(
+                    url='http://127.0.0.1:8000/telegram/session/check_access_key',
+                    json={'access_key': access_key},
+                    timeout=20,
+                )
+                access = access_response.json()
+
+            # has_access = access.get('has_access', False)
+            has_access = True
+
+            if has_access:
+                # sg.Popup(strings['access_granted'], strings['access_granted_message'])
+                break  # Виходимо з циклу, якщо доступ отримано
+            else:
+                sg.Popup(strings['access_denied'], strings['try_again_message'])
+        else:
+            sg.Popup(strings['error'], strings['key_not_entered'])
+
+window.close()
 
 
-def start_account(account):
+# Запуск Telegram Desktop со скаченной папкой сессиии
+def start_session(account):
     global telegram
-    global accounts
-    subprocess.Popen([telegram, '-workdir', dir+'accounts/'+accounts[account]])
-    sys.exit(0)
+    global process_name
+    has_running_process = False
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            # Перевірка чи назва процесу збігається
+            if proc.info['name'] == process_name:
+                has_running_process = True
+                result = disconnect_session(account)
+                if result:
+                    has_running_process = False
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    if has_running_process:
+        sg.Popup(strings['error'],
+                 strings['session_still_running'], icon=icon)
+    account_dir = os.path.join(dir, 'account')
+    with httpx.Client() as client:
+        session_file_response = client.post(
+            url='http://localhost:8000/telegram/session/get_session_folder',
+            json={'session_name': account},
+            timeout=20,
+        )
+        session_file_content = session_file_response.content
+    if session_file_content:
+        zip_path = os.path.join(account_dir, 'tdata.zip')
+        with open(zip_path, 'wb') as zip_file:
+            zip_file.write(session_file_content)
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(account_dir)
+            os.remove(zip_path)
+        except zipfile.BadZipFile:
+            sg.Popup(strings['error'],
+                     strings['session_file_download_error'], icon=icon)
+        account_file_path = os.path.join(account_dir, f'{account}.xyz')
+        with open(account_file_path, 'w') as account_file:
+            account_file.write('')
+        # subprocess.Popen([telegram, '-workdir', account_dir])
+    else:
+        sg.Popup(strings['error'],
+                 strings['session_file_download_error'], icon=icon)
+
+# Запуск Telegram Desktop со скаченной папкой сессиии
+def disconnect_session(account=None):
+    global process_name
+    account_dir = os.path.join(dir, 'account')
+    if not account:
+        for file in os.listdir(account_dir):
+            if file.endswith('.xyz'):
+                account = file.split('.')[0]
+                break
+
+    # stop_process_result = kill_process_by_name(process_name)
+    # if not stop_process_result:
+    #     sg.Popup(strings['error'])
+
+    if os.path.exists(account_dir):
+        # Проходимо по всім елементам в папці
+        for filename in os.listdir(account_dir):
+            file_path = os.path.join(account_dir, filename)
+            try:
+                # Якщо це файл або символічне посилання, видаляємо його
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                # Якщо це директорія, видаляємо її та весь вміст
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f'Помилка при видаленні {file_path}. Причина: {e}')
+    else:
+        print('Вказана папка не існує')
+    if not account:
+        return True
+    with httpx.Client() as client:
+        enable_session_response = client.post(
+            url='http://localhost:8000/telegram/session/enable_session',
+            json={'session_name': account},
+            timeout=20,
+        )
+        enable_session = enable_session_response.json().get('status', '')
+    if enable_session == 'ok':
+        sg.Popup(strings['success_message'],
+                 strings['session_disconnected_successfully'], icon=icon)
+        return True
+    else:
+        sg.Popup(strings['error'],
+                 strings['session_disconnection_is_failed'], icon=icon)
+        return False
 
 
+def kill_process_by_name(proc_name):
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            # Перевірка чи назва процесу збігається
+            if proc.info['name'] == proc_name:
+                print(f"Знайдено процес: {proc.info['name']} (PID: {proc.info['pid']})")
+                # Завершуємо процес
+                proc.kill()
+                print(f"Процес {proc.info['name']} завершено")
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return False
+    return True
+
+
+# Загрузка портативной версии Telegram Desktop
 def download_tdesk():
     global dir
     global icon
@@ -73,6 +261,8 @@ def download_tdesk():
     window.Close()
     if version == None:
         return 'exit'
+    file_name = ''
+    link = ''
     if version == 'Telegram Desktop':
         if os.name == 'nt':
             link = 'https://telegram.org/dl/desktop/win_portable'
@@ -87,12 +277,14 @@ def download_tdesk():
         else:
             link = 'https://telegram.org/dl/desktop/linux?beta=1'
             file_name = dir+'telegram.tar.xz'
+    if not file_name or not link:
+        return 'exit'
     layout = [[sg.Text('Downloading Telegram Desktop...')],
               [sg.ProgressBar(100, orientation='h', size=(20, 20), key='progressbar')]]
     window = sg.Window('Downloading Telegram Desktop...',
                        icon=icon).Layout(layout)
     progress_bar = window.FindElement('progressbar')
-    event, values = window.Read(timeout=0)
+    window.Read(timeout=0)
     with open(file_name, 'wb') as f:
         response = requests.get(link, stream=True)
         total_length = response.headers.get('content-length')
@@ -106,7 +298,7 @@ def download_tdesk():
                 f.write(data)
                 percentage = int(100 * dl / total_length)
                 progress_bar.UpdateBar(percentage)
-                event, values = window.Read(timeout=0)
+                window.Read(timeout=0)
     extract(file_name, dir+'bin/', method='insecure')
     os.remove(file_name)
     window.Close()
@@ -120,19 +312,26 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+def get_sessions_list():
+    with httpx.Client() as client:
+        accounts_response = client.get('http://127.0.0.1:8000/telegram/session/list')
+        accounts = accounts_response.json()
+    header = ["Session", "First Name", "Last Name", "Username", "Phone"]
+    rows = [
+        [
+            account.get('session', ''), account.get('first_name', ''), account.get('last_name', ''),
+            account.get('username', ''), account.get('phone', '')
+        ] for account in accounts
+    ]
+    return header, rows
+
+
 if not os.path.exists(dir):
     os.makedirs(dir)
-if not os.path.exists(dir+'accounts'):
-    os.makedirs(dir+'accounts')
+if not os.path.exists(dir+'account'):
+    os.makedirs(dir+'account')
 if not os.path.exists(dir+'bin'):
     os.makedirs(dir+'bin')
-if not os.path.exists(dir+'accounts.json'):
-    file = open(dir+'accounts.json', 'w')
-    file.write('{}')
-    file.close()
-file = open(dir+'accounts.json', 'r')
-accounts = json.loads(file.read())
-file.close()
 icon = resource_path('icon.ico')
 if not os.path.exists(icon) or os.name == 'posix':
     icon = b'R0lGODlhIAAgAOfFAB6WyB6WyR+XyR+XyiCYyiCYyyGYyyGZyyGZzCKZzCKazCKazSOazSObzSObziSbzimayyScziSczyWczyWdzyWd0Cad0Cae0Cae0See0Sef0Sef0iif0iig0iig0ymg0zOezimh0ymh1Cqh1Cqi1Tmezzaf0Cui1Tmfzzmf0Cuj1iyj1jqg0Syk1zih0i2k1y2k2DSj1Duh0i2l2C6l2C6l2S6m2S+m2S+m2i+n2jCn2jCn202gzDCo20ei0DGo2zGo3DGp3DKp3DKp3TKq3TOq3TOq3lOizTSr3jSr30im1TSs3zWs4DWt4Dat4Teu4mGo0U6u3Waq01uu2mir0V+x3XGu1G2x2XWv1XOw1nWx1Ha23XS75Iq52YS/4ou+34u+4I6+3ZO93ITB5pbB35LC4pnB3pzB3ZPF5Z/H4qjI3azL36PN6qzL46zM5K3M5LDM4K3N5a3N5rHN4K3O56/O5a7R6rfR4rLS6bjR5rjV6r7U57bX7cja6sXb68rb68vc68Xe8Mje7szd7Mze7Mze7czf7szf787f7s/f7c/g783i8c/j8tTj79bk8NLm9Njm8dnm8dbn89jq9t3p8+Ds9eHs9eLt9uDu+OXu9eHv+eXv9+bw+Obx+ejx+Orx+Ofy+ery+Onz+enz+uvz+Ov0+uv1++31++32++72++72/O73/O/3/PD3/PH3/PD4/PH4/PL4/fL5/fP5/fT5/fT6/fX6/fb6/fj6/Pb7/ff7/fj7/vj8/vn8/vr8/vr9/vv9/vz+/v3+//7+//7//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////yH5BAEKAP8ALAAAAAAgACAAAAj+AP8JHEhQ4JODCA8WXMhwIBMnCSMibNjQSJIlTJo4gSgxIUWCQ4gYsZiEyUOOHZ98/LcDCJAhQ0YmKXkypcqGN3Do2PEDiJAhRYwguZhxY0eGMGjUsIEjx44eQIKElEnTaMSCKla0eDGDho0bTqG+jEnSpNWJA0mcyLq161edPH0CFUpUI8eBH0SMUMv2RdKlTZ9GDcllzEyzEAVy6PAhhF6+Wrl6BbsjCptJrDRRNSsQg4YNHDzk3bs2clcvgUyxWv3oZ9ChS/5RqGABQwbQoh+vnWIH02pRlVbzgSpVpMUHESZQsHAhg4bFH2KUWbRqtSpKjlKtRhPWJcwiDBr+IJcw+wKGK3o6rV7NKVGk9a+qvN3ZUwgCBQsaOIhgIo2k9audAkkflLDSyiuwgOKXUkyFRcABByigQANhoAIgK5cM0oclrcASyyy0MNKXW2AJQAABBhyQgAI+kCHIKKU00scfm8Aiyyy12JILHpC1pRQAAQgwAAEFHHDfAiDk0QcgntyYYy679PKFXmBs0RcMAGQJgAAmPhihGH0Q4oott+gSpS+/KMHYIXSQltU/WmbJ5YkGQNHHHHeQwksvvwATTCiebWCIHKORIFCcWgY55B5wqKGFH8AIMwwxitCGgSFxhJbXoYjGKcAZa1ABoRm4FFPMG6amauonHQzUaZxTPBzRpQFSZFJMFiWgkAIidbAggwsEvdqpogRAYMWRDRTiBnkVFCTsq3N6qQAhbYjH0LPQztoFFgpQhO2rxBaw0rfCCrASp+TGeW6w6a7bkLDnBgQAOw=='
@@ -140,65 +339,42 @@ if not os.path.exists(icon) or os.name == 'posix':
 if not os.path.exists(telegram):
     if download_tdesk() == 'exit':
         sys.exit(0)
-layout = [[sg.Button(strings['new_account']), sg.Button(strings['update_tdesk'])],
-          [sg.Listbox(values=list(accounts.keys()), size=(40, 10), bind_return_key=True, key='selected_account'), sg.Column([[sg.Button(strings['start'])], [sg.Button(strings['edit_name'])], [sg.Button(strings['delete_account'])]])]]
-window = sg.Window('TDeskMulti', icon=icon).Layout(layout)
+header, rows = get_sessions_list()
+layout = [
+    [sg.Button(strings['update_accounts_list']), sg.Button(strings['update_tdesk'])],
+    [
+        sg.Table(headings=header, values=rows, size=(50, 20), bind_return_key=True, key='selected_account', font='None 12'),
+        sg.Column([[sg.Button(strings['start_session'])], [sg.Button(strings['disconnect_session'])], [sg.Exit()]])
+    ]
+]
+window = sg.Window('Telegram sessions switcher', icon=icon).Layout(layout)
 while True:
-    event, values = window.Read()
-    if event is None or event == 'Exit':
-        break
-    if event == strings['new_account']:
-        name = sg.PopupGetText(
-            strings['enter_acc_name'], strings['enter_acc_name'], icon=icon)
-        if name:
-            if not name in accounts:
-                account_id = str(uuid.uuid4())
-                os.makedirs(dir+'accounts/'+account_id)
-                accounts[name] = account_id
-                file = open(dir+'accounts.json', 'w')
-                file.write(json.dumps(accounts))
-                file.close()
-                window.FindElement('selected_account').Update(
-                    list(accounts.keys()))
-            else:
-                sg.Popup(strings['error'],
-                         strings['e_account_exists'], icon=icon)
+    event, values = window.read()
+    if event in (sg.WIN_CLOSED, "Exit"):
+        result = disconnect_session()
+        if not result:
+            sg.Popup(strings['error'],
+                     strings['session_still_running'], icon=icon)
+        else:
+            window.close()
+            break
+    if event == strings['update_accounts_list']:
+        header, rows = get_sessions_list()
+        window['selected_account'].update(values=rows)
     if event == strings['update_tdesk']:
         download_tdesk()
-    if event == strings['start']:
+    if event == strings['start_session']:
         if values['selected_account'] == []:
             sg.Popup(strings['error'],
                      strings['e_not_selected_account'], icon=icon)
         else:
-            window.Close()
-            start_account(values['selected_account'][0])
-    if event == strings['edit_name']:
+           start_session(rows[values['selected_account'][0]][0])
+    if event == strings['disconnect_session']:
         if values['selected_account'] == []:
             sg.Popup(strings['error'],
-                     strings['e_not_selected_account'], icon=icon)
-        else:
-            name = sg.PopupGetText(
-                strings['enter_acc_name'], strings['enter_acc_name'], icon=icon)
-            accounts[name] = accounts[values['selected_account'][0]]
-            del accounts[values['selected_account'][0]]
-            window.FindElement('selected_account').Update(
-                list(accounts.keys()))
-            file = open(dir+'accounts.json', 'w')
-            file.write(json.dumps(accounts))
-            file.close()
-    if event == strings['delete_account']:
-        if values['selected_account'] == []:
-            sg.Popup(strings['error'],
-                     strings['e_not_selected_account'], icon=icon)
+                strings['e_not_selected_account'], icon=icon)
         else:
             if sg.PopupYesNo(strings['sure'], icon=icon) == 'Yes':
-                account_id = accounts[values['selected_account'][0]]
-                del accounts[values['selected_account'][0]]
-                window.FindElement('selected_account').Update(
-                    list(accounts.keys()))
-                file = open(dir+'accounts.json', 'w')
-                file.write(json.dumps(accounts))
-                file.close()
-                rmtree(dir+'accounts/'+account_id)
+                disconnect_session(rows[values['selected_account'][0]][0])
 
 window.Close()
