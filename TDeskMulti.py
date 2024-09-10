@@ -2,6 +2,7 @@ import psutil
 import os
 import shutil
 import sys
+import httpx
 import subprocess
 import locale
 import zipfile
@@ -88,76 +89,33 @@ else:
 # Выбор темы для приложения
 sg.theme('SystemDefault')
 
-import sys
-import PySimpleGUI as sg
-import httpx
-
-# Створюємо вікно з полем вводу та двома кнопками
-layout = [
-    [sg.Text(strings['enter_access_key'], font="None 12 bold")],
-    [sg.Input(key='access_key', font="None 12")],
-    [sg.Button('Enter', bind_return_key=True, font="None 12"), sg.Button('Cancel', font="None 12")]
-]
-
-window = sg.Window(title=strings['enter_access_key'], size=(250, 100), layout=layout)
-
-while True:
-    event, values = window.read()
-
-    # Якщо користувач натискає 'Cancel' або закриває вікно
-    if event == sg.WINDOW_CLOSED or event == 'Cancel':
-        sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
-        sys.exit(0)  # Завершити програму
-
-    # Якщо натиснуто кнопку 'Enter' або клавішу Enter
-    if event == 'Enter':
-        access_key = values['access_key']
-
-        if access_key:
-            with httpx.Client() as client:
-                access_response = client.post(
-                    url=f'{BACKEND_HOST}telegram/session/check_access_key',
-                    json={'access_key': access_key},
-                    timeout=20,
-                )
-                access = access_response.json()
-
-            has_access = access.get('has_access', False)
-
-            if has_access:
-                sg.Popup(strings['access_granted'], strings['access_granted_message'], font="None 12")
-                break  # Виходимо з циклу, якщо доступ отримано
-            else:
-                sg.Popup(strings['access_denied'], strings['try_again_message'], font="None 12")
-        else:
-            sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
-
-window.close()
-
-
 # Запуск Telegram Desktop со скаченной папкой сессиии
-def start_session(account):
+def start_session(session_account):
     global telegram
     global process_name
+    account_dir = os.path.join(dir, 'account')
     has_running_process = False
+    old_account = None
+    for file in os.listdir(account_dir):
+        if file.endswith('.xyz'):
+            old_account = file.split('.')[0]
+            break
     for proc in psutil.process_iter(['pid', 'name']):
         try:
             # Перевірка чи назва процесу збігається
             if proc.info['name'] == process_name:
                 has_running_process = True
-                result = disconnect_session(account)
-                if result:
-                    has_running_process = False
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
-    if has_running_process:
-        sg.Popup(strings['error'],
+    if has_running_process or old_account:
+        running_result = disconnect_session(old_account)
+        if not running_result:
+            sg.Popup(strings['error'],
                  strings['session_still_running'], icon=icon, font="None 12")
-    account_dir = os.path.join(dir, 'account')
     with httpx.Client() as client:
         session_file_response = client.post(
             url=f'{BACKEND_HOST}telegram/session/get_session_folder',
-            json={'session_name': account},
+            json={'session_name': session_account},
             timeout=20,
         )
         session_file_content = session_file_response.content
@@ -172,7 +130,7 @@ def start_session(account):
         except zipfile.BadZipFile:
             sg.Popup(strings['error'],
                      strings['session_file_download_error'], icon=icon, font="None 12")
-        account_file_path = os.path.join(account_dir, f'{account}.xyz')
+        account_file_path = os.path.join(account_dir, f'{session_account}.xyz')
         with open(account_file_path, 'w') as account_file:
             account_file.write('')
         subprocess.Popen([telegram, '-workdir', account_dir])
@@ -181,7 +139,7 @@ def start_session(account):
                  strings['session_file_download_error'], icon=icon, font="None 12")
 
 # Запуск Telegram Desktop со скаченной папкой сессиии
-def disconnect_session(account=None):
+def disconnect_session(account=None, show_popup=True):
     global process_name
     account_dir = os.path.join(dir, 'account')
     if not account:
@@ -192,7 +150,8 @@ def disconnect_session(account=None):
 
     stop_process_result = kill_process_by_name(process_name)
     if not stop_process_result:
-        sg.Popup(strings['error'], font="None 12")
+        if show_popup:
+            sg.Popup(strings['error'], font="None 12")
 
     if os.path.exists(account_dir):
         # Проходимо по всім елементам в папці
@@ -219,12 +178,14 @@ def disconnect_session(account=None):
         )
         enable_session = enable_session_response.json().get('status', '')
     if enable_session == 'ok':
-        sg.Popup(strings['success_message'],
-                 strings['session_disconnected_successfully'], icon=icon, font="None 12")
+        if show_popup:
+            sg.Popup(strings['success_message'],
+                     strings['session_disconnected_successfully'], icon=icon, font="None 12")
         return True
     else:
-        sg.Popup(strings['error'],
-                 strings['session_disconnection_is_failed'], icon=icon, font="None 12")
+        if show_popup:
+            sg.Popup(strings['error'],
+                     strings['session_disconnection_is_failed'], icon=icon, font="None 12")
         return False
 
 
@@ -319,6 +280,48 @@ def get_sessions_list():
     ]
     return header, rows
 
+disconnect_session(show_popup=False)
+
+layout = [
+    [sg.Text(strings['enter_access_key'], font="None 12 bold")],
+    [sg.Input(key='access_key', font="None 12")],
+    [sg.Button('Enter', bind_return_key=True, font="None 12"), sg.Button('Cancel', font="None 12")]
+]
+
+window = sg.Window(title=strings['enter_access_key'], size=(250, 100), layout=layout)
+
+while True:
+    event, values = window.read()
+
+    # Якщо користувач натискає 'Cancel' або закриває вікно
+    if event == sg.WINDOW_CLOSED or event == 'Cancel':
+        sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
+        sys.exit(0)  # Завершити програму
+
+    # Якщо натиснуто кнопку 'Enter' або клавішу Enter
+    if event == 'Enter':
+        access_key = values['access_key']
+
+        if access_key:
+            with httpx.Client() as client:
+                access_response = client.post(
+                    url=f'{BACKEND_HOST}telegram/session/check_access_key',
+                    json={'access_key': access_key},
+                    timeout=20,
+                )
+                access = access_response.json()
+
+            has_access = access.get('has_access', False)
+
+            if has_access:
+                sg.Popup(strings['access_granted'], strings['access_granted_message'], font="None 12")
+                break  # Виходимо з циклу, якщо доступ отримано
+            else:
+                sg.Popup(strings['access_denied'], strings['try_again_message'], font="None 12")
+        else:
+            sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
+
+window.close()
 
 if not os.path.exists(dir):
     os.makedirs(dir)
