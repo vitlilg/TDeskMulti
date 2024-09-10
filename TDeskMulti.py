@@ -354,12 +354,12 @@ window = sg.Window('Telegram sessions switcher', icon=icon).Layout(layout)
 while True:
     event, values = window.read()
     if event in (sg.WIN_CLOSED, "Exit"):
+        window.close()
         result = disconnect_session()
         if not result:
             sg.Popup(strings['error'],
                      strings['session_still_running'], icon=icon, font="None 12")
         else:
-            window.close()
             break
     if event == strings['update_accounts_list']:
         running_sessions = {row[0]: row for row in rows if row[-1] == 'Running'}
