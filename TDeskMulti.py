@@ -6,6 +6,8 @@ import httpx
 import subprocess
 import locale
 import zipfile
+import threading
+import asyncio
 
 import requests
 import PySimpleGUI as sg
@@ -289,6 +291,37 @@ def get_sessions_list():
     ]
     return header, rows
 
+def is_telegram_running():
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            if proc.info['name'] == process_name:
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    return False
+
+async def check_telegram_status(rows, window):
+    while True:
+        for index, row in enumerate(rows):
+            if row[-1] == 'Running':  # Перевіряємо тільки запущені сесії
+                if not is_telegram_running():
+                    # Якщо клієнт більше не працює, викликаємо disconnect
+                    disconnect_session()
+                    # Оновлюємо статус у таблиці для конкретного рядка
+                    rows[index][-1] = ''
+                    window['selected_account'].update(values=rows)
+
+        await asyncio.sleep(5)
+
+async def start_session_and_monitor(rows, window, selected_index):
+    session = rows[selected_index][0]
+    start_session(session)
+    rows[selected_index][-1] = 'Running'
+    window['selected_account'].update(values=rows)
+
+    # Запускаємо асинхронний моніторинг статусу
+    asyncio.create_task(check_telegram_status(rows, window))
+
 if not os.path.exists(dir):
     os.makedirs(dir)
 if not os.path.exists(dir+'account'):
@@ -379,10 +412,8 @@ while True:
             sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
         else:
             selected_index = values['selected_account'][0]
-            session = rows[selected_index][0]
-            start_session(session)
-            rows[selected_index][-1] = 'Running'
-            window['selected_account'].update(values=rows)
+
+            asyncio.run(start_session_and_monitor(rows, window, selected_index))
     if event == strings['disconnect_session']:
         if values['selected_account'] == []:
             sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
