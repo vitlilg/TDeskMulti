@@ -383,7 +383,7 @@ while True:
             rows[selected_index][-1] = 'Running'
 
             # Оновлюємо список в інтерфейсі (припустимо, у вас є елемент ListBox)
-            window['account_list'].update(values=rows)
+            window['selected_account'].update(values=rows)
 
     if event == strings['disconnect_session']:
         if values['selected_account'] == []:
@@ -401,6 +401,6 @@ while True:
                 rows[selected_index][-1] = ''
 
                 # Оновлюємо список в інтерфейсі
-                window['account_list'].update(values=rows)
+                window['selected_account'].update(values=rows)
 
 window.Close()
