@@ -378,7 +378,7 @@ while True:
         if values['selected_account'] == []:
             sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
         else:
-            if values['selected_account'][0][-1] == 'Running' and sg.PopupYesNo(strings['sure'], icon=icon, font="None 12") == 'Yes':
+            if rows[values['selected_account'][0]][-1] == 'Running' and sg.PopupYesNo(strings['sure'], icon=icon, font="None 12") == 'Yes':
                 selected_index = values['selected_account'][0]  # Індекс вибраного акаунта
                 session = rows[selected_index][0]  # Отримуємо сесію для відключення
                 disconnect_session(session)
