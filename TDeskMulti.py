@@ -310,7 +310,6 @@ async def check_telegram_status(rows, window):
                     # Оновлюємо статус у таблиці для конкретного рядка
                     rows[index][-1] = ''
                     window['selected_account'].update(values=rows)
-
         await asyncio.sleep(5)
 
 async def start_session_and_monitor(rows, window, selected_index):
@@ -321,6 +320,14 @@ async def start_session_and_monitor(rows, window, selected_index):
 
     # Запускаємо асинхронний моніторинг статусу
     asyncio.create_task(check_telegram_status(rows, window))
+
+def run_asyncio_loop(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
+loop = asyncio.new_event_loop()
+asyncio_thread = threading.Thread(target=run_asyncio_loop, args=(loop,), daemon=True)
+asyncio_thread.start()
 
 if not os.path.exists(dir):
     os.makedirs(dir)
@@ -413,7 +420,7 @@ while True:
         else:
             selected_index = values['selected_account'][0]
 
-            asyncio.run(start_session_and_monitor(rows, window, selected_index))
+            asyncio.run_coroutine_threadsafe(start_session_and_monitor(rows, window, selected_index), loop)
     if event == strings['disconnect_session']:
         if values['selected_account'] == []:
             sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
