@@ -402,5 +402,7 @@ while True:
 
                 # Оновлюємо список в інтерфейсі
                 window['selected_account'].update(values=rows)
+            else:
+                sg.Popup(strings['error'], strings['session_not_started'], icon=icon, font="None 12")
 
 window.Close()
