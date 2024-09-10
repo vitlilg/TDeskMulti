@@ -6,8 +6,6 @@ import httpx
 import subprocess
 import locale
 import zipfile
-import threading
-import asyncio
 
 import requests
 import PySimpleGUI as sg
@@ -287,44 +285,6 @@ def get_sessions_list():
         ] for account in accounts
     ]
     return header, rows
-
-def is_telegram_running():
-    for proc in psutil.process_iter(['pid', 'name']):
-        try:
-            if proc.info['name'] == process_name:
-                return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
-    return False
-
-async def check_telegram_status(rows, window):
-    while True:
-        for index, row in enumerate(rows):
-            if row[-1] == 'Running':  # Перевіряємо тільки запущені сесії
-                if not is_telegram_running():
-                    # Якщо клієнт більше не працює, викликаємо disconnect
-                    disconnect_session()
-                    # Оновлюємо статус у таблиці для конкретного рядка
-                    rows[index][-1] = ''
-                    window['selected_account'].update(values=rows)
-        await asyncio.sleep(5)
-
-async def start_session_and_monitor(rows, window, selected_index):
-    session = rows[selected_index][0]
-    start_session(session)
-    rows[selected_index][-1] = 'Running'
-    window['selected_account'].update(values=rows)
-
-    # Запускаємо асинхронний моніторинг статусу
-    asyncio.create_task(check_telegram_status(rows, window))
-
-def run_asyncio_loop(loop):
-    asyncio.set_event_loop(loop)
-    loop.run_forever()
-
-loop = asyncio.new_event_loop()
-asyncio_thread = threading.Thread(target=run_asyncio_loop, args=(loop,), daemon=True)
-asyncio_thread.start()
 
 if not os.path.exists(dir):
     os.makedirs(dir)
