@@ -3,20 +3,15 @@ import os
 import shutil
 import sys
 import subprocess
-import json
-import uuid
 import locale
-import base64
 import zipfile
 
-import httpx
 import requests
 import PySimpleGUI as sg
-# import PySimpleGUIQt as sg
 from archive import extract
-from shutil import rmtree
 import argparse
 
+from settings import BACKEND_HOST
 
 # Обработка аргументов командной строки
 parser = argparse.ArgumentParser(description='Telegram Desktop multi-account.')
@@ -121,17 +116,16 @@ while True:
         if access_key:
             with httpx.Client() as client:
                 access_response = client.post(
-                    url='http://127.0.0.1:8000/telegram/session/check_access_key',
+                    url=f'{BACKEND_HOST}telegram/session/check_access_key',
                     json={'access_key': access_key},
                     timeout=20,
                 )
                 access = access_response.json()
 
-            # has_access = access.get('has_access', False)
-            has_access = True
+            has_access = access.get('has_access', False)
 
             if has_access:
-                # sg.Popup(strings['access_granted'], strings['access_granted_message'])
+                sg.Popup(strings['access_granted'], strings['access_granted_message'])
                 break  # Виходимо з циклу, якщо доступ отримано
             else:
                 sg.Popup(strings['access_denied'], strings['try_again_message'])
@@ -162,7 +156,7 @@ def start_session(account):
     account_dir = os.path.join(dir, 'account')
     with httpx.Client() as client:
         session_file_response = client.post(
-            url='http://localhost:8000/telegram/session/get_session_folder',
+            url=f'{BACKEND_HOST}telegram/session/get_session_folder',
             json={'session_name': account},
             timeout=20,
         )
@@ -219,7 +213,7 @@ def disconnect_session(account=None):
         return True
     with httpx.Client() as client:
         enable_session_response = client.post(
-            url='http://localhost:8000/telegram/session/enable_session',
+            url=f'{BACKEND_HOST}telegram/session/enable_session',
             json={'session_name': account},
             timeout=20,
         )
@@ -314,7 +308,7 @@ def resource_path(relative_path):
 
 def get_sessions_list():
     with httpx.Client() as client:
-        accounts_response = client.get('http://127.0.0.1:8000/telegram/session/list')
+        accounts_response = client.get(f'{BACKEND_HOST}telegram/session/list')
         accounts = accounts_response.json()
     header = ["Session", "First Name", "Last Name", "Username", "Phone"]
     rows = [
