@@ -53,7 +53,7 @@ strings_en = {
     'session_file_download_error': 'Session file download is failed', 'success_message': 'Success',
     'session_disconnected_successfully': 'Session disconnected successfully',
     'session_disconnection_is_failed': 'Session disconnection is failed',
-    'session_still_running': 'Session is still running',
+    'session_still_running': 'Session is still running', 'session_not_started': 'Session is not started',
 }
 strings_uk = {
     'update_accounts_list': 'Оновити список акаунтів', 'update_tdesk': 'Оновити Telegram Desktop',
@@ -65,7 +65,7 @@ strings_uk = {
     'try_again_message': 'Доступ не надано для вас', 'session_file_download_error': 'Помилка завантаження файлу сесії',
     'session_disconnected_successfully': 'Сесія відключена успішно', 'success_message': 'Успіх',
     'session_disconnection_is_failed': 'Сесія не відключена',
-    'session_still_running': 'Сесія ще активна',
+    'session_still_running': 'Сесія ще активна', 'session_not_started': 'Сесія не запущена',
 }
 strings_ru = {
     'update_accounts_list': 'Обновить список аккаунтов', 'update_tdesk': 'Обновить Telegram Desktop',
@@ -76,7 +76,7 @@ strings_ru = {
     'access_granted_message': 'Доступ для вас предоставлен', 'access_denied': 'Доступ не предоставлен',
     'try_again_message': 'Доступ не предоставлен для вас',
     'session_file_download_error': 'Ошибка загружка файла сессии', 'success_message': 'Успех',
-    'session_disconnected_successfully': 'Сессия успешно отключена',
+    'session_disconnected_successfully': 'Сессия успешно отключена', 'session_not_started': 'Сессия не запущена',
     'session_disconnection_is_failed': 'Сессия не отключена', 'session_still_running': 'Сессия еще активна',
 }
 if locale.getdefaultlocale()[0] == 'uk_UA':
@@ -362,16 +362,33 @@ while True:
         download_tdesk()
     if event == strings['start_session']:
         if values['selected_account'] == []:
-            sg.Popup(strings['error'],
-                     strings['e_not_selected_account'], icon=icon, font="None 12")
+            sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
         else:
-           start_session(rows[values['selected_account'][0]][0])
+            selected_index = values['selected_account'][0]  # Індекс вибраного акаунта
+            session = rows[selected_index][0]  # Отримуємо сесію для запуску
+            start_session(session)
+
+            # Оновлюємо останнє значення рядка на 'Running'
+            rows[selected_index][-1] = 'Running'
+
+            # Оновлюємо список в інтерфейсі (припустимо, у вас є елемент ListBox)
+            window['account_list'].update(values=rows)
+
     if event == strings['disconnect_session']:
         if values['selected_account'] == []:
-            sg.Popup(strings['error'],
-                strings['e_not_selected_account'], icon=icon, font="None 12")
+            sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
         else:
-            if sg.PopupYesNo(strings['sure'], icon=icon, font="None 12") == 'Yes':
-                disconnect_session(rows[values['selected_account'][0]][0])
+            if values['selected_account'][0][-1] == 'Running' and sg.PopupYesNo(strings['sure'], icon=icon, font="None 12") == 'Yes':
+                selected_index = values['selected_account'][0]  # Індекс вибраного акаунта
+                session = rows[selected_index][0]  # Отримуємо сесію для відключення
+                disconnect_session(session)
+
+                # Оновлюємо останнє значення рядка на ''
+                rows[selected_index][-1] = ''
+
+                # Оновлюємо список в інтерфейсі
+                window['account_list'].update(values=rows)
+            else:
+                sg.Popup(strings['error'], strings['session_not_started'], icon=icon, font="None 12")
 
 window.Close()
