@@ -320,7 +320,7 @@ async def start_session_and_monitor(rows, window, selected_index):
     window['selected_account'].update(values=rows)
 
     # Запускаємо асинхронний моніторинг статусу
-    asyncio.create_task(check_telegram_status(rows, window))
+    await asyncio.create_task(check_telegram_status(rows, window))
 
 if not os.path.exists(dir):
     os.makedirs(dir)
