@@ -94,19 +94,19 @@ import httpx
 
 # Створюємо вікно з полем вводу та двома кнопками
 layout = [
-    [sg.Text(strings['enter_access_key'])],
-    [sg.Input(key='access_key')],
-    [sg.Button('Enter', bind_return_key=True), sg.Button('Cancel')]
+    [sg.Text(strings['enter_access_key'], font="None 12 bold")],
+    [sg.Input(key='access_key', font="None 12")],
+    [sg.Button('Enter', bind_return_key=True, font="None 12"), sg.Button('Cancel', font="None 12")]
 ]
 
-window = sg.Window(strings['enter_access_key'], layout)
+window = sg.Window(title=strings['enter_access_key'], size=(250, 100), layout=layout)
 
 while True:
     event, values = window.read()
 
     # Якщо користувач натискає 'Cancel' або закриває вікно
     if event == sg.WINDOW_CLOSED or event == 'Cancel':
-        sg.Popup(strings['error'], strings['key_not_entered'])
+        sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
         sys.exit(0)  # Завершити програму
 
     # Якщо натиснуто кнопку 'Enter' або клавішу Enter
@@ -125,12 +125,12 @@ while True:
             has_access = access.get('has_access', False)
 
             if has_access:
-                sg.Popup(strings['access_granted'], strings['access_granted_message'])
+                sg.Popup(strings['access_granted'], strings['access_granted_message'], font="None 12")
                 break  # Виходимо з циклу, якщо доступ отримано
             else:
-                sg.Popup(strings['access_denied'], strings['try_again_message'])
+                sg.Popup(strings['access_denied'], strings['try_again_message'], font="None 12")
         else:
-            sg.Popup(strings['error'], strings['key_not_entered'])
+            sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
 
 window.close()
 
@@ -152,7 +152,7 @@ def start_session(account):
             pass
     if has_running_process:
         sg.Popup(strings['error'],
-                 strings['session_still_running'], icon=icon)
+                 strings['session_still_running'], icon=icon, font="None 12")
     account_dir = os.path.join(dir, 'account')
     with httpx.Client() as client:
         session_file_response = client.post(
@@ -171,14 +171,14 @@ def start_session(account):
             os.remove(zip_path)
         except zipfile.BadZipFile:
             sg.Popup(strings['error'],
-                     strings['session_file_download_error'], icon=icon)
+                     strings['session_file_download_error'], icon=icon, font="None 12")
         account_file_path = os.path.join(account_dir, f'{account}.xyz')
         with open(account_file_path, 'w') as account_file:
             account_file.write('')
         subprocess.Popen([telegram, '-workdir', account_dir])
     else:
         sg.Popup(strings['error'],
-                 strings['session_file_download_error'], icon=icon)
+                 strings['session_file_download_error'], icon=icon, font="None 12")
 
 # Запуск Telegram Desktop со скаченной папкой сессиии
 def disconnect_session(account=None):
@@ -192,7 +192,7 @@ def disconnect_session(account=None):
 
     stop_process_result = kill_process_by_name(process_name)
     if not stop_process_result:
-        sg.Popup(strings['error'])
+        sg.Popup(strings['error'], font="None 12")
 
     if os.path.exists(account_dir):
         # Проходимо по всім елементам в папці
@@ -220,11 +220,11 @@ def disconnect_session(account=None):
         enable_session = enable_session_response.json().get('status', '')
     if enable_session == 'ok':
         sg.Popup(strings['success_message'],
-                 strings['session_disconnected_successfully'], icon=icon)
+                 strings['session_disconnected_successfully'], icon=icon, font="None 12")
         return True
     else:
         sg.Popup(strings['error'],
-                 strings['session_disconnection_is_failed'], icon=icon)
+                 strings['session_disconnection_is_failed'], icon=icon, font="None 12")
         return False
 
 
@@ -247,8 +247,8 @@ def kill_process_by_name(proc_name):
 def download_tdesk():
     global dir
     global icon
-    layout = [[sg.Combo(['Telegram Desktop', 'Telegram Desktop Alpha'], readonly=True, default_value='Telegram Desktop')],
-              [sg.OK()]]
+    layout = [[sg.Combo(['Telegram Desktop', 'Telegram Desktop Alpha'], readonly=True, default_value='Telegram Desktop', font="None 12")],
+              [sg.OK(font="None 12")]]
     window = sg.Window('Telegram Desktop version', icon=icon).Layout(layout)
     event, number = window.Read()
     version = number[0]
@@ -335,10 +335,10 @@ if not os.path.exists(telegram):
         sys.exit(0)
 header, rows = get_sessions_list()
 layout = [
-    [sg.Button(strings['update_accounts_list']), sg.Button(strings['update_tdesk'])],
+    [sg.Button(strings['update_accounts_list'], font="None 12 bold"), sg.Button(strings['update_tdesk'], font="None 12 bold")],
     [
-        sg.Table(headings=header, values=rows, size=(50, 20), bind_return_key=True, key='selected_account', font='None 12'),
-        sg.Column([[sg.Button(strings['start_session'])], [sg.Button(strings['disconnect_session'])], [sg.Exit()]])
+        sg.Table(headings=header, values=rows, size=(50, 20), bind_return_key=True, key='selected_account', font='None 13'),
+        sg.Column([[sg.Button(strings['start_session'], font="None 12 bold")], [sg.Button(strings['disconnect_session'], font="None 12 bold")], [sg.Exit(font="None 12 bold")]])
     ]
 ]
 window = sg.Window('Telegram sessions switcher', icon=icon).Layout(layout)
@@ -348,7 +348,7 @@ while True:
         result = disconnect_session()
         if not result:
             sg.Popup(strings['error'],
-                     strings['session_still_running'], icon=icon)
+                     strings['session_still_running'], icon=icon, font="None 12")
         else:
             window.close()
             break
@@ -360,15 +360,15 @@ while True:
     if event == strings['start_session']:
         if values['selected_account'] == []:
             sg.Popup(strings['error'],
-                     strings['e_not_selected_account'], icon=icon)
+                     strings['e_not_selected_account'], icon=icon, font="None 12")
         else:
            start_session(rows[values['selected_account'][0]][0])
     if event == strings['disconnect_session']:
         if values['selected_account'] == []:
             sg.Popup(strings['error'],
-                strings['e_not_selected_account'], icon=icon)
+                strings['e_not_selected_account'], icon=icon, font="None 12")
         else:
-            if sg.PopupYesNo(strings['sure'], icon=icon) == 'Yes':
+            if sg.PopupYesNo(strings['sure'], icon=icon, font="None 12") == 'Yes':
                 disconnect_session(rows[values['selected_account'][0]][0])
 
 window.Close()
