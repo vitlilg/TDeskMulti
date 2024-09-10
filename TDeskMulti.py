@@ -150,6 +150,8 @@ def start_session(session_account):
 def disconnect_session(account=None, show_popup=True):
     global process_name
     account_dir = os.path.join(dir, 'account')
+
+    # Шукаємо аккаунт, якщо він не переданий
     if not account:
         for file in os.listdir(account_dir):
             if file.endswith('.xyz'):
@@ -157,44 +159,62 @@ def disconnect_session(account=None, show_popup=True):
                 break
 
     stop_process_result = kill_process_by_name(process_name)
-    if not stop_process_result:
-        if show_popup:
-            sg.Popup(strings['error'], font="None 12")
 
-    if os.path.exists(account_dir):
-        # Проходимо по всім елементам в папці
-        for filename in os.listdir(account_dir):
-            file_path = os.path.join(account_dir, filename)
-            try:
-                # Якщо це файл або символічне посилання, видаляємо його
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)
-                # Якщо це директорія, видаляємо її та весь вміст
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                print(f'Помилка при видаленні {file_path}. Причина: {e}')
-    else:
-        print('Вказана папка не існує')
+    # Якщо не вдалося завершити процес, показуємо попап про помилку
+    if not stop_process_result and show_popup:
+        sg.Popup(strings['error'], font="None 12")
+        return
+
+    # Видалення файлів в окремому потоці, щоб не блокувати UI
+    def clean_up_files():
+        if os.path.exists(account_dir):
+            for filename in os.listdir(account_dir):
+                file_path = os.path.join(account_dir, filename)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    print(f'Помилка при видаленні {file_path}. Причина: {e}')
+        else:
+            print('Вказана папка не існує')
+
+    threading.Thread(target=clean_up_files, daemon=True).start()
+
+    # Якщо аккаунт не знайдено, закінчуємо функцію
     if not account:
         return True
-    with httpx.Client() as client:
-        enable_session_response = client.post(
-            url=f'{BACKEND_HOST}telegram/session/enable_session',
-            json={'session_name': account},
-            timeout=20,
-        )
-        enable_session = enable_session_response.json().get('status', '')
-    if enable_session == 'ok':
-        if show_popup:
-            sg.Popup(strings['success_message'],
-                     strings['session_disconnected_successfully'], icon=icon, font="None 12")
-        return True
-    else:
-        if show_popup:
-            sg.Popup(strings['error'],
-                     strings['session_disconnection_is_failed'], icon=icon, font="None 12")
-        return False
+
+    # Виконуємо HTTP-запит в окремому потоці, щоб уникнути блокування
+    def enable_session_request():
+        try:
+            with httpx.Client() as client:
+                enable_session_response = client.post(
+                    url=f'{BACKEND_HOST}telegram/session/enable_session',
+                    json={'session_name': account},
+                    timeout=20,
+                )
+                enable_session = enable_session_response.json().get('status', '')
+
+                if enable_session == 'ok':
+                    if show_popup:
+                        sg.Popup(strings['success_message'],
+                                 strings['session_disconnected_successfully'], icon=icon, font="None 12")
+                    return True
+                else:
+                    if show_popup:
+                        sg.Popup(strings['error'],
+                                 strings['session_disconnection_is_failed'], icon=icon, font="None 12")
+                    return False
+        except Exception as e:
+            print(f'Помилка при виконанні запиту: {e}')
+            if show_popup:
+                sg.Popup(strings['error'],
+                         strings['session_disconnection_is_failed'], icon=icon, font="None 12")
+            return False
+
+    threading.Thread(target=enable_session_request, daemon=True).start()
 
 
 def kill_process_by_name(proc_name):
