@@ -365,7 +365,12 @@ while True:
             window.close()
             break
     if event == strings['update_accounts_list']:
+        running_sessions = {row[0]: row for row in rows if row[-1] == 'Running'}
         header, rows = get_sessions_list()
+        for row in rows:
+            session = row[0]
+            if session in running_sessions:
+                row[-1] = 'Running'
         window['selected_account'].update(values=rows)
     if event == strings['update_tdesk']:
         download_tdesk()
@@ -373,16 +378,11 @@ while True:
         if values['selected_account'] == []:
             sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
         else:
-            selected_index = values['selected_account'][0]  # Індекс вибраного акаунта
-            session = rows[selected_index][0]  # Отримуємо сесію для запуску
+            selected_index = values['selected_account'][0]
+            session = rows[selected_index][0]
             start_session(session)
-
-            # Оновлюємо останнє значення рядка на 'Running'
             rows[selected_index][-1] = 'Running'
-
-            # Оновлюємо список в інтерфейсі (припустимо, у вас є елемент ListBox)
-            window['account_list'].update(values=rows)
-
+            window['selected_account'].update(values=rows)
     if event == strings['disconnect_session']:
         if values['selected_account'] == []:
             sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
@@ -391,15 +391,13 @@ while True:
                     rows[values['selected_account'][0]][-1] == 'Running' and
                     sg.PopupYesNo(strings['sure'], icon=icon, font="None 12") == 'Yes'
             ):
-                selected_index = values['selected_account'][0]  # Індекс вибраного акаунта
-                session = rows[selected_index][0]  # Отримуємо сесію для відключення
+                selected_index = values['selected_account'][0]
+                session = rows[selected_index][0]
                 disconnect_session(session)
 
-                # Оновлюємо останнє значення рядка на ''
                 rows[selected_index][-1] = ''
 
-                # Оновлюємо список в інтерфейсі
-                window['account_list'].update(values=rows)
+                window['selected_account'].update(values=rows)
             else:
                 sg.Popup(strings['error'], strings['session_not_started'], icon=icon, font="None 12")
 
