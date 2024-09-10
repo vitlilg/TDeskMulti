@@ -12,6 +12,7 @@ PyGetWindow==0.0.9
 PyRect==0.2.0
 PySimpleGUI==5.0.6
 python-archive==0.2
+python-dotenv==1.0.1
 requests==2.31.0
 rsa==4.9
 six==1.16.0
