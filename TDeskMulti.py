@@ -1,4 +1,5 @@
 import time
+import jwt
 
 import psutil
 import os
@@ -14,7 +15,7 @@ import PySimpleGUI as sg
 from archive import extract
 import argparse
 
-from settings import BACKEND_HOST
+from settings import BACKEND_HOST, BACKEND_JWT_SECRET_KEY
 
 # Обработка аргументов командной строки
 parser = argparse.ArgumentParser(description='Telegram Desktop multi-account.')
@@ -97,6 +98,14 @@ else:
 # Выбор темы для приложения
 sg.theme('SystemDefault')
 
+def create_client_token():
+    payload = {
+        'sub': 'client_application',  # Інформація про клієнта або інший ідентифікатор
+        'iat': int(time.time()),  # Час створення токена
+        'exp': int(time.time()) + 3600  # Час дії токена (1 година)
+    }
+    return jwt.encode(payload, BACKEND_JWT_SECRET_KEY, algorithm='HS256')
+
 # Запуск Telegram Desktop со скаченной папкой сессиии
 def start_session(session_account):
     global telegram
@@ -121,8 +130,12 @@ def start_session(session_account):
             sg.Popup(strings['error'],
                  strings['session_still_running'], icon=icon, font="None 12")
     with httpx.Client() as client:
+        headers = {
+            'Authorization': f'Bearer {create_client_token()}'  # Передаємо токен
+        }
         session_file_response = client.post(
             url=f'{BACKEND_HOST}telegram/session/get_session_folder',
+            headers=headers,
             json={'session_name': session_account},
             timeout=20,
         )
@@ -177,9 +190,14 @@ def disconnect_session(account=None, show_popup=True):
     if not account:
         return True
     with httpx.Client() as client:
+        token = create_client_token()
+        headers = {
+            'Authorization': f'Bearer {token}'  # Передаємо токен
+        }
         enable_session_response = client.post(
             url=f'{BACKEND_HOST}telegram/session/enable_session',
             json={'session_name': account},
+            headers=headers,
             timeout=20,
         )
         enable_session = enable_session_response.json().get('status', '')
@@ -275,7 +293,11 @@ def resource_path(relative_path):
 
 def get_sessions_list():
     with httpx.Client() as client:
-        accounts_response = client.get(f'{BACKEND_HOST}telegram/session/list')
+        token = create_client_token()
+        headers = {
+            'Authorization': f'Bearer {token}'  # Передаємо токен
+        }
+        accounts_response = client.get(url=f'{BACKEND_HOST}telegram/session/list', headers=headers)
         accounts = accounts_response.json()
     header = [
         strings.get('session'), strings.get('first_name'), strings.get('last_name'), strings.get('username'),
@@ -323,8 +345,13 @@ while True:
 
         if access_key:
             with httpx.Client() as client:
+                token = create_client_token()
+                headers = {
+                    'Authorization': f'Bearer {token}'
+                }
                 access_response = client.post(
                     url=f'{BACKEND_HOST}telegram/session/check_access_key',
+                    headers=headers,
                     json={'access_key': access_key},
                     timeout=20,
                 )
