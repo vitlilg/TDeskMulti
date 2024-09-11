@@ -15,6 +15,7 @@ PyGetWindow==0.0.9
 pyinstall==0.1.4
 pyinstaller==6.10.0
 pyinstaller-hooks-contrib==2024.8
+pyjwt==2.9.0
 PyRect==0.2.0
 PySimpleGUI==5.0.6
 python-archive==0.2
