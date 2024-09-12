@@ -390,6 +390,7 @@ create_context_menu(input_widget)
 
 # Привязываем событие Ctrl + V для вставки
 input_widget.bind("<Control-v>", lambda e: input_widget.event_generate('<<Paste>>'))
+input_widget.bind("<Control-м>", lambda e: input_widget.event_generate('<<Paste>>'))
 
 while True:
     event, values = window.read()
