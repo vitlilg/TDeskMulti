@@ -385,19 +385,18 @@ layout = [
 
 window = sg.Window(title=strings['enter_access_key'], size=(360, 100), layout=layout)
 
-access_widget = window['access_key'].Widget
-create_context_menu(access_widget)
 
 while True:
     event, values = window.read()
+
+    input_widget = window['access_key'].Widget
+    create_context_menu(input_widget)
+    input_widget.bind("<Control-v>", lambda e: input_widget.event_generate('<<Paste>>'))
 
     # Якщо користувач натискає 'Cancel' або закриває вікно
     if event == sg.WINDOW_CLOSED or event == 'Cancel':
         sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
         sys.exit(0)  # Завершити програму
-
-    input_widget = window['access_key'].Widget
-    input_widget.bind("<Control-v>", lambda e: input_widget.event_generate('<<Paste>>'))
 
     # Якщо натиснуто кнопку 'Enter' або клавішу Enter
     if event == 'Enter':
