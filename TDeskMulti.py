@@ -59,7 +59,7 @@ strings_en = {
     'session_still_running': 'Session is still running', 'session_not_started': 'Session is not started yet',
     'session': 'Session', 'first_name': 'First Name', 'last_name': 'Last Name', 'username': 'Username',
     'phone': 'Phone', 'active': 'Active', 'enter_filter_string': 'Enter filter string: ', 'search_button': 'Search',
-    'reset_button': 'Reset filter',
+    'reset_button': 'Reset filter', 'warning': 'Warning', 'session_running_now': 'Session is running now!'
 }
 strings_uk = {
     'update_accounts_list': 'Оновити список акаунтів', 'update_tdesk': 'Оновити Telegram Desktop',
@@ -73,8 +73,8 @@ strings_uk = {
     'session_disconnection_is_failed': 'Сесія не відключена',
     'session_still_running': 'Сесія ще активна', 'session_not_started': 'Сесія ще не запущена',
     'session': 'Сесія', 'first_name': "Ім'я", 'last_name': 'Прізвище', 'username': 'Ім\'я користувача',
-    'phone': 'Телефон', 'active': 'Активний','enter_filter_string': 'Введіть строку пошуку: ', 'search_button': 'Пошук',
-    'reset_button': 'Скинути фільтр',
+    'phone': 'Телефон', 'active': 'Активний','enter_filter_string': 'Введіть строку пошуку: ', 'search_button': 'Пошук', 'reset_button': 'Скинути фільтр',  'warning': 'Увага', 
+    'session_running_now': 'Сесія наразі запущена!'
 }
 strings_ru = {
     'update_accounts_list': 'Обновить список аккаунтов', 'update_tdesk': 'Обновить Telegram Desktop',
@@ -90,6 +90,7 @@ strings_ru = {
     'session_not_started': 'Сессия еще не запущена', 'session': 'Сессия', 'first_name': 'Имя', 'last_name': 'Фамилия',
     'username': 'Имя пользователя', 'phone': 'Телефон', 'active': 'Активен',
     'enter_filter_string': 'Введите строку поиска: ', 'search_button': 'Поиск', 'reset_button': 'Сбросить фильтр',
+    'warning': 'Внимаение',  'session_running_now': 'Сессия уже запущена!'
 }
 if locale.getdefaultlocale()[0] == 'uk_UA':
     strings = strings_uk
@@ -329,8 +330,11 @@ def get_sessions_list():
     ]
     rows = [
         [
-            account.get('session', ''), account.get('first_name', ''), account.get('last_name', ''),
-            account.get('username', ''), account.get('phone', ''), '',
+            account.get('session', ''), 
+            account.get('first_name', '') if account.get('first_name', '') != 'None' else '', 
+            account.get('last_name', '') if account.get('last_name', '') != 'None' else '', 
+            account.get('username', '') if account.get('username', '') != 'None' else '', 
+            account.get('phone', ''), '',
         ] for account in accounts
     ]
     return header, rows
@@ -417,7 +421,7 @@ layout = [
         sg.Button(strings['update_tdesk'], font="None 12 bold"),
     ],
     [
-        sg.Text(strings['enter_filter_string'], font="None 12 bold"), sg.Input(key='filter_value',  size=(50, 1)),
+        sg.Text(strings['enter_filter_string'], font="None 12 bold"), sg.Input(key='filter_value', font="None 12", size=(50,2)),
         sg.Button(strings['search_button'], font="None 12 bold", bind_return_key=True),
         sg.Button(strings['reset_button'], font="None 12 bold")
     ],
@@ -460,6 +464,9 @@ while True:
         else:
             selected_index = values['selected_account'][0]  # Індекс вибраного акаунта
             session = rows[selected_index][0]  # Отримуємо сесію для запуску
+            if rows[selected_index][-1] == 'Running':
+                sg.Popup(strings['warning'], strings['session_running_now'], icon=icon, font="None 12")
+                continue
             start_session(session)
             running_sessions = {row[0]: row for row in rows if row[-1] == 'Running'}
             for row in rows:
