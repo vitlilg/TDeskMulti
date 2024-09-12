@@ -435,7 +435,11 @@ while True:
             selected_index = values['selected_account'][0]  # Індекс вибраного акаунта
             session = rows[selected_index][0]  # Отримуємо сесію для запуску
             start_session(session)
-
+            running_sessions = {row[0]: row for row in rows if row[-1] == 'Running'}
+            for row in rows:
+                session = row[0]
+                if session in running_sessions:
+                    row[-1] = ''
             # Оновлюємо останнє значення рядка на 'Running'
             rows[selected_index][-1] = 'Running'
 
