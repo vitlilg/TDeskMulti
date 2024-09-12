@@ -58,7 +58,8 @@ strings_en = {
     'session_disconnection_is_failed': 'Session disconnection is failed',
     'session_still_running': 'Session is still running', 'session_not_started': 'Session is not started yet',
     'session': 'Session', 'first_name': 'First Name', 'last_name': 'Last Name', 'username': 'Username',
-    'phone': 'Phone', 'active': 'Active',
+    'phone': 'Phone', 'active': 'Active', 'enter_filter_string': 'Enter filter string: ', 'search_button': 'Search',
+    'reset_button': 'Reset filter',
 }
 strings_uk = {
     'update_accounts_list': 'Оновити список акаунтів', 'update_tdesk': 'Оновити Telegram Desktop',
@@ -72,7 +73,8 @@ strings_uk = {
     'session_disconnection_is_failed': 'Сесія не відключена',
     'session_still_running': 'Сесія ще активна', 'session_not_started': 'Сесія ще не запущена',
     'session': 'Сесія', 'first_name': "Ім'я", 'last_name': 'Прізвище', 'username': 'Ім\'я користувача',
-    'phone': 'Телефон', 'active': 'Активний',
+    'phone': 'Телефон', 'active': 'Активний','enter_filter_string': 'Введіть строку пошуку: ', 'search_button': 'Пошук',
+    'reset_button': 'Скинути фільтр',
 }
 strings_ru = {
     'update_accounts_list': 'Обновить список аккаунтов', 'update_tdesk': 'Обновить Telegram Desktop',
@@ -87,6 +89,7 @@ strings_ru = {
     'session_disconnection_is_failed': 'Сессия не отключена', 'session_still_running': 'Сессия еще активна',
     'session_not_started': 'Сессия еще не запущена', 'session': 'Сессия', 'first_name': 'Имя', 'last_name': 'Фамилия',
     'username': 'Имя пользователя', 'phone': 'Телефон', 'active': 'Активен',
+    'enter_filter_string': 'Введите строку поиска: ', 'search_button': 'Поиск', 'reset_button': 'Сбросить фильтр',
 }
 if locale.getdefaultlocale()[0] == 'uk_UA':
     strings = strings_uk
@@ -332,6 +335,14 @@ def get_sessions_list():
     ]
     return header, rows
 
+def filter_sessions(filter_value, rows):
+    if not filter_value:
+        return rows
+    filtered_rows = [
+        row for row in rows if any(filter_value.lower() in str(item).lower() for item in row)
+    ]
+    return filtered_rows
+
 if not os.path.exists(dir):
     os.makedirs(dir)
 
@@ -401,7 +412,15 @@ if not os.path.exists(telegram):
         sys.exit(0)
 header, rows = get_sessions_list()
 layout = [
-    [sg.Button(strings['update_accounts_list'], font="None 12 bold"), sg.Button(strings['update_tdesk'], font="None 12 bold")],
+    [
+        sg.Button(strings['update_accounts_list'], font="None 12 bold"),
+        sg.Button(strings['update_tdesk'], font="None 12 bold"),
+    ],
+    [
+        sg.Text(strings['enter_filter_string'], font="None 12 bold"), sg.Input(key='filter_value',  size=(50, 1)),
+        sg.Button(strings['search_button'], font="None 12 bold", bind_return_key=True),
+        sg.Button(strings['reset_button'], font="None 12 bold")
+    ],
     [
         sg.Table(headings=header, values=rows, size=(50, 20), bind_return_key=True, key='selected_account', font='None 13'),
         sg.Column([[sg.Button(strings['start_session'], font="None 12 bold")], [sg.Button(strings['disconnect_session'], font="None 12 bold")], [sg.Exit(font="None 12 bold")]])
@@ -428,6 +447,13 @@ while True:
         window['selected_account'].update(values=rows)
     if event == strings['update_tdesk']:
         download_tdesk()
+    if event == strings['search_button']:
+        filter_value = values['filter_value']
+        filtered_rows = filter_sessions(filter_value, rows)
+        window['selected_account'].update(values=filtered_rows)
+    if event == strings['reset_button']:
+        window['filter_value'].update('')
+        window['selected_account'].update(values=rows)
     if event == strings['start_session']:
         if values['selected_account'] == []:
             sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
