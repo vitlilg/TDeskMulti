@@ -383,15 +383,16 @@ layout = [
     [sg.Button('Enter', bind_return_key=True, font="None 12"), sg.Button('Cancel', font="None 12")]
 ]
 
-window = sg.Window(title=strings['enter_access_key'], size=(360, 100), layout=layout)
+window = sg.Window(title=strings['enter_access_key'], size=(360, 100), layout=layout, finalize=True)
 
+input_widget = window['access_key'].widget
+create_context_menu(input_widget)
+
+# Привязываем событие Ctrl + V для вставки
+input_widget.bind("<Control-v>", lambda e: input_widget.event_generate('<<Paste>>'))
 
 while True:
     event, values = window.read()
-
-    input_widget = window['access_key'].Widget
-    create_context_menu(input_widget)
-    input_widget.bind("<Control-v>", lambda e: input_widget.event_generate('<<Paste>>'))
 
     # Якщо користувач натискає 'Cancel' або закриває вікно
     if event == sg.WINDOW_CLOSED or event == 'Cancel':
