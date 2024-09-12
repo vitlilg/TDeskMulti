@@ -1,5 +1,6 @@
 import time
 import jwt
+import tkinter as tk
 
 import psutil
 import os
@@ -347,6 +348,17 @@ def filter_sessions(filter_value, rows):
     ]
     return filtered_rows
 
+def create_context_menu(widget):
+    menu = tk.Menu(widget, tearoff=0)
+    menu.add_command(label="Копировать", command=lambda: widget.event_generate('<<Copy>>'))
+    menu.add_command(label="Вставить", command=lambda: widget.event_generate('<<Paste>>'))
+    menu.add_command(label="Вырезать", command=lambda: widget.event_generate('<<Cut>>'))
+
+    def show_context_menu(event):
+        menu.post(event.x_root, event.y_root)
+
+    widget.bind("<Button-3>", show_context_menu)
+
 if not os.path.exists(dir):
     os.makedirs(dir)
 
@@ -373,6 +385,9 @@ layout = [
 
 window = sg.Window(title=strings['enter_access_key'], size=(360, 100), layout=layout)
 
+access_widget = window['access_key'].Widget
+create_context_menu(access_widget)
+
 while True:
     event, values = window.read()
 
@@ -380,6 +395,9 @@ while True:
     if event == sg.WINDOW_CLOSED or event == 'Cancel':
         sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
         sys.exit(0)  # Завершити програму
+
+    input_widget = window['access_key'].Widget
+    input_widget.bind("<Control-v>", lambda e: input_widget.event_generate('<<Paste>>'))
 
     # Якщо натиснуто кнопку 'Enter' або клавішу Enter
     if event == 'Enter':
