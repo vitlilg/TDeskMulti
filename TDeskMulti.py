@@ -106,32 +106,40 @@ def create_client_token():
     }
     return jwt.encode(payload, BACKEND_JWT_SECRET_KEY, algorithm='HS256')
 
-# Запуск Telegram Desktop со скаченной папкой сессиии
 def start_session(session_account):
     global telegram
     global process_name
-    account_dir = os.path.join(dir, 'account')
+    base_dir = os.path.join(dir, 'bin', 'Telegram')
+    tdata_dir = os.path.join(base_dir, 'tdata')
+    
     has_running_process = False
     old_account = None
-    for file in os.listdir(account_dir):
+
+    # Check for existing .xyz files
+    for file in os.listdir(tdata_dir):
         if file.endswith('.xyz'):
             old_account = file.split('.')[0]
             break
+
+    # Check if the process is already running
     for proc in psutil.process_iter(['pid', 'name']):
         try:
-            # Перевірка чи назва процесу збігається
             if proc.info['name'] == process_name:
                 has_running_process = True
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
+
     if has_running_process or old_account:
         running_result = disconnect_session(old_account)
         if not running_result:
             sg.Popup(strings['error'],
-                 strings['session_still_running'], icon=icon, font="None 12")
+                     strings['session_still_running'], icon=icon, font="None 12")
+            return
+
+    # Fetch the session file
     with httpx.Client() as client:
         headers = {
-            'Authorization': f'Bearer {create_client_token()}'  # Передаємо токен
+            'Authorization': f'Bearer {create_client_token()}'  # Pass token
         }
         session_file_response = client.post(
             url=f'{BACKEND_HOST}telegram/session/get_session_folder',
@@ -140,21 +148,34 @@ def start_session(session_account):
             timeout=20,
         )
         session_file_content = session_file_response.content
+
     if session_file_content:
-        zip_path = os.path.join(account_dir, 'tdata.zip')
+        # Save the ZIP file
+        zip_path = os.path.join(tdata_dir, 'tdata.zip')
         with open(zip_path, 'wb') as zip_file:
             zip_file.write(session_file_content)
+
+        # Create tdata folder if it doesn't exist
+        if not os.path.exists(tdata_dir):
+            os.makedirs(tdata_dir)
+
         try:
+            # Extract the ZIP file into the tdata folder
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(account_dir)
+                zip_ref.extractall(tdata_dir)
             os.remove(zip_path)
         except zipfile.BadZipFile:
             sg.Popup(strings['error'],
                      strings['session_file_download_error'], icon=icon, font="None 12")
-        account_file_path = os.path.join(account_dir, f'{session_account}.xyz')
+            return
+
+        # Create or overwrite the account file
+        account_file_path = os.path.join(tdata_dir, f'{session_account}.xyz')
         with open(account_file_path, 'w') as account_file:
             account_file.write('')
-        subprocess.Popen([telegram, '-workdir', account_dir])
+
+        # Start the Telegram process
+        subprocess.Popen([telegram, '-workdir', base_dir])
     else:
         sg.Popup(strings['error'],
                  strings['session_file_download_error'], icon=icon, font="None 12")
@@ -162,7 +183,7 @@ def start_session(session_account):
 # Запуск Telegram Desktop со скаченной папкой сессиии
 def disconnect_session(account=None, show_popup=True):
     global process_name
-    account_dir = os.path.join(dir, 'account')
+    account_dir = os.path.join(dir, 'bin', 'Telegram', 'tdata')
     if not account:
         for file in os.listdir(account_dir):
             if file.endswith('.xyz'):
@@ -313,10 +334,16 @@ def get_sessions_list():
 
 if not os.path.exists(dir):
     os.makedirs(dir)
-if not os.path.exists(dir+'account'):
-    os.makedirs(dir+'account')
-if not os.path.exists(dir+'bin'):
-    os.makedirs(dir+'bin')
+
+# Define subdirectories
+subdirs = ['bin', 'bin/Telegram', 'bin/Telegram/tdata']
+
+# Create subdirectories if they don't exist
+for subdir in subdirs:
+    path = os.path.join(dir, subdir)
+    if not os.path.exists(path):
+        os.makedirs(path)
+
 icon = resource_path('icon.ico')
 if not os.path.exists(icon) or os.name == 'posix':
     icon = b'R0lGODlhIAAgAOfFAB6WyB6WyR+XyR+XyiCYyiCYyyGYyyGZyyGZzCKZzCKazCKazSOazSObzSObziSbzimayyScziSczyWczyWdzyWd0Cad0Cae0Cae0See0Sef0Sef0iif0iig0iig0ymg0zOezimh0ymh1Cqh1Cqi1Tmezzaf0Cui1Tmfzzmf0Cuj1iyj1jqg0Syk1zih0i2k1y2k2DSj1Duh0i2l2C6l2C6l2S6m2S+m2S+m2i+n2jCn2jCn202gzDCo20ei0DGo2zGo3DGp3DKp3DKp3TKq3TOq3TOq3lOizTSr3jSr30im1TSs3zWs4DWt4Dat4Teu4mGo0U6u3Waq01uu2mir0V+x3XGu1G2x2XWv1XOw1nWx1Ha23XS75Iq52YS/4ou+34u+4I6+3ZO93ITB5pbB35LC4pnB3pzB3ZPF5Z/H4qjI3azL36PN6qzL46zM5K3M5LDM4K3N5a3N5rHN4K3O56/O5a7R6rfR4rLS6bjR5rjV6r7U57bX7cja6sXb68rb68vc68Xe8Mje7szd7Mze7Mze7czf7szf787f7s/f7c/g783i8c/j8tTj79bk8NLm9Njm8dnm8dbn89jq9t3p8+Ds9eHs9eLt9uDu+OXu9eHv+eXv9+bw+Obx+ejx+Orx+Ofy+ery+Onz+enz+uvz+Ov0+uv1++31++32++72++72/O73/O/3/PD3/PH3/PD4/PH4/PL4/fL5/fP5/fT5/fT6/fX6/fb6/fj6/Pb7/ff7/fj7/vj8/vn8/vr8/vr9/vv9/vz+/v3+//7+//7//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////yH5BAEKAP8ALAAAAAAgACAAAAj+AP8JHEhQ4JODCA8WXMhwIBMnCSMibNjQSJIlTJo4gSgxIUWCQ4gYsZiEyUOOHZ98/LcDCJAhQ0YmKXkypcqGN3Do2PEDiJAhRYwguZhxY0eGMGjUsIEjx44eQIKElEnTaMSCKla0eDGDho0bTqG+jEnSpNWJA0mcyLq161edPH0CFUpUI8eBH0SMUMv2RdKlTZ9GDcllzEyzEAVy6PAhhF6+Wrl6BbsjCptJrDRRNSsQg4YNHDzk3bs2clcvgUyxWv3oZ9ChS/5RqGABQwbQoh+vnWIH02pRlVbzgSpVpMUHESZQsHAhg4bFH2KUWbRqtSpKjlKtRhPWJcwiDBr+IJcw+wKGK3o6rV7NKVGk9a+qvN3ZUwgCBQsaOIhgIo2k9audAkkflLDSyiuwgOKXUkyFRcABByigQANhoAIgK5cM0oclrcASyyy0MNKXW2AJQAABBhyQgAI+kCHIKKU00scfm8Aiyyy12JILHpC1pRQAAQgwAAEFHHDfAiDk0QcgntyYYy679PKFXmBs0RcMAGQJgAAmPhihGH0Q4oott+gSpS+/KMHYIXSQltU/WmbJ5YkGQNHHHHeQwksvvwATTCiebWCIHKORIFCcWgY55B5wqKGFH8AIMwwxitCGgSFxhJbXoYjGKcAZa1ABoRm4FFPMG6amauonHQzUaZxTPBzRpQFSZFJMFiWgkAIidbAggwsEvdqpogRAYMWRDRTiBnkVFCTsq3N6qQAhbYjH0LPQztoFFgpQhO2rxBaw0rfCCrASp+TGeW6w6a7bkLDnBgQAOw=='
