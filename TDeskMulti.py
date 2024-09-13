@@ -10,6 +10,7 @@ import httpx
 import subprocess
 import locale
 import zipfile
+import platform
 
 import requests
 import PySimpleGUI as sg
@@ -94,7 +95,7 @@ strings_ru = {
     'username': 'Имя пользователя', 'phone': 'Телефон', 'active': 'Активен',
     'enter_filter_string': 'Введите строку поиска: ', 'search_button': 'Поиск', 'reset_button': 'Сбросить фильтр',
     'warning': 'Внимаение',  'session_running_now': 'Сессия уже запущена!',
-    'copy': 'Копировать', 'paste': 'Вставить', 'cut': 'Вирезать',
+    'copy': 'Копировать', 'paste': 'Вставить', 'cut': 'Вырезать',
 }
 if locale.getdefaultlocale()[0] == 'uk_UA':
     strings = strings_uk
@@ -140,8 +141,7 @@ def start_session(session_account):
     if has_running_process or old_account:
         running_result = disconnect_session(old_account)
         if not running_result:
-            sg.Popup(strings['error'],
-                     strings['session_still_running'], icon=icon, font="None 12")
+            sg.Popup(strings['session_still_running'], icon=icon, font="None 12", title=strings['error'])
             return
 
     # Fetch the session file
@@ -173,8 +173,7 @@ def start_session(session_account):
                 zip_ref.extractall(tdata_dir)
             os.remove(zip_path)
         except zipfile.BadZipFile:
-            sg.Popup(strings['error'],
-                     strings['session_file_download_error'], icon=icon, font="None 12")
+            sg.Popup(strings['session_file_download_error'], icon=icon, font="None 12", title=strings['error'])
             return
 
         # Create or overwrite the account file
@@ -185,8 +184,7 @@ def start_session(session_account):
         # Start the Telegram process
         subprocess.Popen([telegram, '-workdir', base_dir])
     else:
-        sg.Popup(strings['error'],
-                 strings['session_file_download_error'], icon=icon, font="None 12")
+        sg.Popup(strings['session_file_download_error'], icon=icon, font="None 12", title=strings['error'])
 
 # Запуск Telegram Desktop со скаченной папкой сессиии
 def disconnect_session(account=None, show_popup=True):
@@ -232,13 +230,11 @@ def disconnect_session(account=None, show_popup=True):
         enable_session = enable_session_response.json().get('status', '')
     if enable_session == 'ok':
         if show_popup:
-            sg.Popup(strings['success_message'],
-                     strings['session_disconnected_successfully'], icon=icon, font="None 12")
+            sg.Popup(strings['session_disconnected_successfully'], icon=icon, font="None 12", title=strings['success_message'])
         return True
     else:
         if show_popup:
-            sg.Popup(strings['error'],
-                     strings['session_disconnection_is_failed'], icon=icon, font="None 12")
+            sg.Popup(strings['session_disconnection_is_failed'], icon=icon, font="None 12", title=strings['error'])
         return False
 
 def kill_process_by_name(proc_name):
@@ -261,7 +257,7 @@ def kill_process_by_name(proc_name):
 def download_tdesk():
     global dir
     global icon
-    layout = [[sg.Combo(['Telegram Desktop', 'Telegram Desktop Alpha'], readonly=True, default_value='Telegram Desktop', font="None 12")],
+    layout = [[sg.Combo(['Telegram Desktop'], readonly=True, default_value='Telegram Desktop', font="None 12")],
               [sg.OK(font="None 12")]]
     window = sg.Window('Telegram Desktop version', icon=icon).Layout(layout)
     event, number = window.Read()
@@ -277,13 +273,6 @@ def download_tdesk():
             file_name = dir+'telegram.zip'
         else:
             link = 'https://telegram.org/dl/desktop/linux'
-            file_name = dir+'telegram.tar.xz'
-    if version == 'Telegram Desktop Alpha':
-        if os.name == 'nt':
-            link = 'https://telegram.org/dl/desktop/win_portable?beta=1'
-            file_name = dir+'telegram.zip'
-        else:
-            link = 'https://telegram.org/dl/desktop/linux?beta=1'
             file_name = dir+'telegram.tar.xz'
     if not file_name or not link:
         return 'exit'
@@ -360,16 +349,28 @@ def create_context_menu(widget):
     def show_context_menu(event):
         menu.post(event.x_root, event.y_root)
 
-    widget.bind("<Button-3>", show_context_menu)
+    if platform.system() == 'Darwin': # MacOS
+        widget.bind("<Button-2>", show_context_menu)
+        widget.bind("<Control-Button-1>", show_context_menu)
+    else: # Windows/Linux
+        widget.bind("<Button-3>", show_context_menu)
 
-def on_key_press(event):
+def input_widget_on_key_press(event):
     key = event.keycode
-    if key == 86 and (event.state & 0x4):  # Ctrl + V
-        input_widget.event_generate('<<Paste>>')
-    elif key == 67 and (event.state & 0x4):  # Ctrl + C
-        input_widget.event_generate('<<Copy>>')
-    elif key == 88 and (event.state & 0x4):  # Ctrl + X
-        input_widget.event_generate('<<Cut>>')
+    if platform.system() == 'Darwin':  # MacOS
+        if key == 86 and (event.state & 0x10):  # Command + V
+            input_widget.event_generate('<<Paste>>')
+        elif key == 67 and (event.state & 0x10):  # Command + C
+            input_widget.event_generate('<<Copy>>')
+        elif key == 88 and (event.state & 0x10):  # Command + X
+            input_widget.event_generate('<<Cut>>')
+    else:  # Windows/Linux
+        if key == 86 and (event.state & 0x4):  # Ctrl + V
+            input_widget.event_generate('<<Paste>>')
+        elif key == 67 and (event.state & 0x4):  # Ctrl + C
+            input_widget.event_generate('<<Copy>>')
+        elif key == 88 and (event.state & 0x4):  # Ctrl + X
+            input_widget.event_generate('<<Cut>>')
 
 if not os.path.exists(dir):
     os.makedirs(dir)
@@ -401,14 +402,14 @@ input_widget = window['access_key'].widget
 
 create_context_menu(input_widget)
 
-input_widget.bind("<KeyPress>", on_key_press)
+input_widget.bind("<KeyPress>", input_widget_on_key_press)
 
 while True:
     event, values = window.read()
 
     # Якщо користувач натискає 'Cancel' або закриває вікно
     if event == sg.WINDOW_CLOSED or event == 'Cancel':
-        sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
+        sg.Popup(strings['key_not_entered'], font="None 12", title=strings['error'])
         sys.exit(0)  # Завершити програму
 
     # Якщо натиснуто кнопку 'Enter' або клавішу Enter
@@ -432,18 +433,36 @@ while True:
             has_access = access.get('has_access', False)
 
             if has_access:
-                sg.Popup(strings['access_granted'], strings['access_granted_message'], font="None 12")
+                sg.Popup(strings['access_granted_message'], font="None 12", title=strings['access_granted'])
                 break  # Виходимо з циклу, якщо доступ отримано
             else:
-                sg.Popup(strings['access_denied'], strings['try_again_message'], font="None 12")
+                sg.Popup(strings['try_again_message'], font="None 12", title=strings['access_denied'])
         else:
-            sg.Popup(strings['error'], strings['key_not_entered'], font="None 12")
+            sg.Popup(strings['key_not_entered'], font="None 12", title=strings['error'])
 
 window.close()
 
 if not os.path.exists(telegram):
     if download_tdesk() == 'exit':
         sys.exit(0)
+
+def filter_widget_on_key_press(event):
+    key = event.keycode
+    if platform.system() == 'Darwin':  # MacOS
+        if key == 86 and (event.state & 0x10):  # Command + V
+            input_widget.event_generate('<<Paste>>')
+        elif key == 67 and (event.state & 0x10):  # Command + C
+            input_widget.event_generate('<<Copy>>')
+        elif key == 88 and (event.state & 0x10):  # Command + X
+            input_widget.event_generate('<<Cut>>')
+    else:  # Windows/Linux
+        if key == 86 and (event.state & 0x4):  # Ctrl + V
+            input_widget.event_generate('<<Paste>>')
+        elif key == 67 and (event.state & 0x4):  # Ctrl + C
+            input_widget.event_generate('<<Copy>>')
+        elif key == 88 and (event.state & 0x4):  # Ctrl + X
+            input_widget.event_generate('<<Cut>>')
+
 header, rows = get_sessions_list()
 layout = [
     [
@@ -460,21 +479,20 @@ layout = [
         sg.Column([[sg.Button(strings['start_session'], font="None 12 bold")], [sg.Button(strings['disconnect_session'], font="None 12 bold")], [sg.Exit(font="None 12 bold")]])
     ]
 ]
-window = sg.Window('Telegram sessions switcher', layout=layout, icon=icon, finalize=True)
+window = sg.Window(title='Telegram sessions switcher', layout=layout, icon=icon, finalize=True)
 
 filter_widget = window['filter_value'].widget
 
 create_context_menu(filter_widget)
 
-filter_widget.bind("<KeyPress>", on_key_press)
+filter_widget.bind("<KeyPress>", filter_widget_on_key_press)
 
 while True:
     event, values = window.read()
     if event in (sg.WIN_CLOSED, "Exit"):
         result = disconnect_session()
         if not result:
-            sg.Popup(strings['error'],
-                     strings['session_still_running'], icon=icon, font="None 12")
+            sg.Popup(strings['session_still_running'], icon=icon, font="None 12", title=strings['error'])
         else:
             window.close()
             break
@@ -497,12 +515,12 @@ while True:
         window['selected_account'].update(values=rows)
     if event == strings['start_session']:
         if values['selected_account'] == []:
-            sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
+            sg.Popup(strings['e_not_selected_account'], icon=icon, font="None 12", title=strings['error'])
         else:
             selected_index = values['selected_account'][0]  # Індекс вибраного акаунта
             session = rows[selected_index][0]  # Отримуємо сесію для запуску
             if rows[selected_index][-1] == 'Running':
-                sg.Popup(strings['warning'], strings['session_running_now'], icon=icon, font="None 12")
+                sg.Popup(strings['session_running_now'], icon=icon, font="None 12", title=strings['warning'])
                 continue
             start_session(session)
             running_sessions = {row[0]: row for row in rows if row[-1] == 'Running'}
@@ -518,7 +536,7 @@ while True:
 
     if event == strings['disconnect_session']:
         if values['selected_account'] == []:
-            sg.Popup(strings['error'], strings['e_not_selected_account'], icon=icon, font="None 12")
+            sg.Popup(strings['e_not_selected_account'], icon=icon, font="None 12", title=strings['error'])
         else:
             if (
                     rows[values['selected_account'][0]][-1] == 'Running' and
@@ -534,6 +552,6 @@ while True:
                 # Оновлюємо список в інтерфейсі
                 window['selected_account'].update(values=rows)
             else:
-                sg.Popup(strings['error'], strings['session_not_started'], icon=icon, font="None 12")
+                sg.Popup(strings['session_not_started'], icon=icon, font="None 12", title=strings['error'])
 
 window.Close()
