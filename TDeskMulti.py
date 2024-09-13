@@ -60,7 +60,8 @@ strings_en = {
     'session_still_running': 'Session is still running', 'session_not_started': 'Session is not started yet',
     'session': 'Session', 'first_name': 'First Name', 'last_name': 'Last Name', 'username': 'Username',
     'phone': 'Phone', 'active': 'Active', 'enter_filter_string': 'Enter filter string: ', 'search_button': 'Search',
-    'reset_button': 'Reset filter', 'warning': 'Warning', 'session_running_now': 'Session is running now!'
+    'reset_button': 'Reset filter', 'warning': 'Warning', 'session_running_now': 'Session is running now!',
+    'copy': 'Copy', 'paste': 'Paste', 'cut': 'Cut',
 }
 strings_uk = {
     'update_accounts_list': 'Оновити список акаунтів', 'update_tdesk': 'Оновити Telegram Desktop',
@@ -75,7 +76,8 @@ strings_uk = {
     'session_still_running': 'Сесія ще активна', 'session_not_started': 'Сесія ще не запущена',
     'session': 'Сесія', 'first_name': "Ім'я", 'last_name': 'Прізвище', 'username': 'Ім\'я користувача',
     'phone': 'Телефон', 'active': 'Активний','enter_filter_string': 'Введіть строку пошуку: ', 'search_button': 'Пошук', 'reset_button': 'Скинути фільтр',  'warning': 'Увага', 
-    'session_running_now': 'Сесія наразі запущена!'
+    'session_running_now': 'Сесія наразі запущена!',
+    'copy': 'Копіювати', 'paste': 'Вставити', 'cut': 'Вирізати',
 }
 strings_ru = {
     'update_accounts_list': 'Обновить список аккаунтов', 'update_tdesk': 'Обновить Telegram Desktop',
@@ -91,7 +93,8 @@ strings_ru = {
     'session_not_started': 'Сессия еще не запущена', 'session': 'Сессия', 'first_name': 'Имя', 'last_name': 'Фамилия',
     'username': 'Имя пользователя', 'phone': 'Телефон', 'active': 'Активен',
     'enter_filter_string': 'Введите строку поиска: ', 'search_button': 'Поиск', 'reset_button': 'Сбросить фильтр',
-    'warning': 'Внимаение',  'session_running_now': 'Сессия уже запущена!'
+    'warning': 'Внимаение',  'session_running_now': 'Сессия уже запущена!',
+    'copy': 'Копировать', 'paste': 'Вставить', 'cut': 'Вирезать',
 }
 if locale.getdefaultlocale()[0] == 'uk_UA':
     strings = strings_uk
@@ -350,14 +353,23 @@ def filter_sessions(filter_value, rows):
 
 def create_context_menu(widget):
     menu = tk.Menu(widget, tearoff=0)
-    menu.add_command(label="Копировать", command=lambda: widget.event_generate('<<Copy>>'))
-    menu.add_command(label="Вставить", command=lambda: widget.event_generate('<<Paste>>'))
-    menu.add_command(label="Вырезать", command=lambda: widget.event_generate('<<Cut>>'))
+    menu.add_command(label=strings['copy'], command=lambda: widget.event_generate('<<Copy>>'))
+    menu.add_command(label=strings['paste'], command=lambda: widget.event_generate('<<Paste>>'))
+    menu.add_command(label=strings['cut'], command=lambda: widget.event_generate('<<Cut>>'))
 
     def show_context_menu(event):
         menu.post(event.x_root, event.y_root)
 
     widget.bind("<Button-3>", show_context_menu)
+
+def on_key_press(event):
+    key = event.keycode
+    if key == 86 and (event.state & 0x4):  # Ctrl + V
+        input_widget.event_generate('<<Paste>>')
+    elif key == 67 and (event.state & 0x4):  # Ctrl + C
+        input_widget.event_generate('<<Copy>>')
+    elif key == 88 and (event.state & 0x4):  # Ctrl + X
+        input_widget.event_generate('<<Cut>>')
 
 if not os.path.exists(dir):
     os.makedirs(dir)
@@ -386,12 +398,10 @@ layout = [
 window = sg.Window(title=strings['enter_access_key'], size=(360, 100), layout=layout, finalize=True)
 
 input_widget = window['access_key'].widget
+
 create_context_menu(input_widget)
 
-# Привязываем событие Ctrl + V для вставки
-input_widget.bind("<Control-v>", lambda e: input_widget.event_generate('<<Paste>>'))
-# Привязываем событие Ctrl + М для кириллицы
-input_widget.bind("<Control-М>", lambda e: input_widget.event_generate('<<Paste>>'))
+input_widget.bind("<KeyPress>", on_key_press)
 
 while True:
     event, values = window.read()
@@ -450,7 +460,14 @@ layout = [
         sg.Column([[sg.Button(strings['start_session'], font="None 12 bold")], [sg.Button(strings['disconnect_session'], font="None 12 bold")], [sg.Exit(font="None 12 bold")]])
     ]
 ]
-window = sg.Window('Telegram sessions switcher', icon=icon).Layout(layout)
+window = sg.Window('Telegram sessions switcher', layout=layout, icon=icon, finalize=True)
+
+filter_widget = window['filter_value'].widget
+
+create_context_menu(filter_widget)
+
+filter_widget.bind("<KeyPress>", on_key_press)
+
 while True:
     event, values = window.read()
     if event in (sg.WIN_CLOSED, "Exit"):
