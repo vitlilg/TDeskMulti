@@ -360,17 +360,23 @@ def input_widget_on_key_press(event):
     if platform.system() == 'Darwin':  # MacOS
         if key == 86 and (event.state & 0x10):  # Command + V
             input_widget.event_generate('<<Paste>>')
+            return "break"
         elif key == 67 and (event.state & 0x10):  # Command + C
             input_widget.event_generate('<<Copy>>')
+            return "break"
         elif key == 88 and (event.state & 0x10):  # Command + X
             input_widget.event_generate('<<Cut>>')
+            return "break"
     else:  # Windows/Linux
         if key == 86 and (event.state & 0x4):  # Ctrl + V
             input_widget.event_generate('<<Paste>>')
+            return "break"
         elif key == 67 and (event.state & 0x4):  # Ctrl + C
             input_widget.event_generate('<<Copy>>')
+            return "break"
         elif key == 88 and (event.state & 0x4):  # Ctrl + X
             input_widget.event_generate('<<Cut>>')
+            return "break"
 
 if not os.path.exists(dir):
     os.makedirs(dir)
@@ -451,17 +457,23 @@ def filter_widget_on_key_press(event):
     if platform.system() == 'Darwin':  # MacOS
         if key == 86 and (event.state & 0x10):  # Command + V
             input_widget.event_generate('<<Paste>>')
+            return "break"
         elif key == 67 and (event.state & 0x10):  # Command + C
             input_widget.event_generate('<<Copy>>')
+            return "break"
         elif key == 88 and (event.state & 0x10):  # Command + X
             input_widget.event_generate('<<Cut>>')
+            return "break"
     else:  # Windows/Linux
         if key == 86 and (event.state & 0x4):  # Ctrl + V
             input_widget.event_generate('<<Paste>>')
+            return "break"
         elif key == 67 and (event.state & 0x4):  # Ctrl + C
             input_widget.event_generate('<<Copy>>')
+            return "break"
         elif key == 88 and (event.state & 0x4):  # Ctrl + X
             input_widget.event_generate('<<Cut>>')
+            return "break"
 
 header, rows = get_sessions_list()
 layout = [
