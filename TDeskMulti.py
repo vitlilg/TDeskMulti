@@ -143,6 +143,11 @@ def start_session(session_account):
         if not running_result:
             sg.Popup(strings['session_still_running'], icon=icon, font="None 12", title=strings['error'])
             return
+        
+    # Create or overwrite the account file
+    account_file_path = os.path.join(tdata_dir, f'{session_account}.xyz')
+    with open(account_file_path, 'w') as account_file:
+        account_file.write('')
 
     # Fetch the session file
     with httpx.Client() as client:
@@ -175,11 +180,6 @@ def start_session(session_account):
         except zipfile.BadZipFile:
             sg.Popup(strings['session_file_download_error'], icon=icon, font="None 12", title=strings['error'])
             return
-
-        # Create or overwrite the account file
-        account_file_path = os.path.join(tdata_dir, f'{session_account}.xyz')
-        with open(account_file_path, 'w') as account_file:
-            account_file.write('')
 
         # Start the Telegram process
         subprocess.Popen([telegram, '-workdir', base_dir])
